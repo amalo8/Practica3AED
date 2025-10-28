@@ -487,13 +487,14 @@ unique(planes$manufacturer) #Para ver las diferentes denominaciones de fabricant
 
 planes.f <- planes %>%
   # Filtrar aviones que no sean de MCDONELL DOUGLAS
-  filter(manufacturer != "MCDONNELL DOUGLAS CORPORATION" & manufacturer != "MCDONNELL DOUGLAS AIRCRAFT CO" & manufacturer != "MCDONNELL DOUGLAS" & manufacturer != "DOUGLAS") %>%
+  # Con str_detect y str_to_upper para evitar problemas de mayúsculas/minúsculas empleando una expresion regular .*DOUGLAS.* que indica cualquier palabra que .* "acepta cualquier número de caracteres antes de DOUGLAS mientras que .* "acepta cualquier número de caracteres después de 'DOUGLAS'".
+  
+  filter(!str_detect(str_to_upper(manufacturer), ".*DOUGLAS.*")) %>%
   # Filtrar aviones con número de asientos entre 90 y 210
   filter(seats >= 90 & seats <= 210) %>%
   # Unificar denominaciones de AIRBUS
   #EXISTE AIRBUS Y AIRBUS INDUSTRIE
-  mutate(manufacturer = ifelse(manufacturer %in% c("AIRBUS", "AIRBUS INDUSTRIE"), "AIRBUS COMP", manufacturer)
-  )
+  mutate(manufacturer = ifelse(str_detect(str_to_upper(manufacturer),".*AIRBUS.*"),"AIRBUS COMP",manufacturer))
 
 unique(planes.f$manufacturer) #Para verificar que las denominaciones de AIRBUS se han unificado correctamente y que no quedan MCDONELL DOUGLAS
 ```
@@ -674,30 +675,125 @@ library(ggplot2)
 * Representa los boxplots de las variables relacionadas con el retraso en la llegada y en la salida (las que terminan con la palabra `delay`) agrupadas por compañía aérea (variable `carrier`) dibujando en dos colores diferentes cada tipo de retraso: tendrás que modificar el data frame con la función `pivot_longer` para crear una nueva variable que indique el tipo de retraso (llegada y salida) que sirva para colorear agrupando por cada tipo de retraso.
 
 ```{r }
+flights_delay_long <- flights %>%
+  #Eliminamos las filas donde falta el dato en cualquiera de las columnas delay.
+  filter(!is.na(arr_delay) & !is.na(dep_delay)) %>%
+  #PIVOT_LONGER: Transformamos de ancho a largo.
+  pivot_longer(
+    # Seleccionamos las columnas que terminan con "delay"
+    cols = ends_with("delay"), 
+    # Nombre de la nueva columna clave
+    names_to = "tipo_retraso",
+    # Nombre de la nueva columna de valor
+    values_to = "valor_retraso"
+  ) 
 
+#Boxplots agrupados y coloreados por tipo de retraso
+ggplot(flights_delay_long, 
+       aes(x = carrier,       # Eje X: Compañía aérea
+           y = valor_retraso, # Eje Y: Valor del retraso
+           fill = tipo_retraso # Color: Tipo de retraso (llegada/salida)
+           )) +
+  geom_boxplot() + 
+  labs(
+    title = "Retraso de Llegada y Salida por Aerolínea",
+    x = "Compañía Aérea",
+    y = "Retraso (minutos)",
+    fill = "Tipo de Retraso"
+  )
 
 ```
 
 * Representa un gráfico de barras que contenga, para cada compañía aérea (`carrier`), el retraso medio de llegadas, de salidas y el retraso global (nueva variable con el promedio del retraso de salida y el retraso de llegadas). El eje $x$ representará la compañía aérea y el eje $y$ el retraso. Las barras de cada tipo de retraso (llegadas, salidas y global) tendrán un color de relleno diferente (tendrás que modificar el data frame con la función `pivot_longer` para crear una nueva variable que indique el tipo de retraso) y se posicionarán una junto a la otra (no apiladas). No olvides añadir etiquetas en los ejes $x$ e $y$.
 
 ```{r }
-
+flights_delay_summary <- flights %>%
+  # Eliminar filas con NA en las columnas de retraso
+  filter(!is.na(arr_delay) & !is.na(dep_delay)) %>%
+  # Calcular el retraso medio de llegada, salida y global por compañía aérea
+  group_by(carrier) %>%
+  summarise(
+    retraso_llegada = mean(arr_delay, na.rm = TRUE),
+    retraso_salida = mean(dep_delay, na.rm = TRUE),
+    retraso_global = mean(c(arr_delay, dep_delay), na.rm = TRUE)
+  ) %>%
+  # PIVOT_LONGER: Transformar de ancho a largo para facilitar la representación gráfica
+  pivot_longer(
+    cols = starts_with("retraso_"), # Seleccionar las columnas de retraso
+    names_to = "tipo_retraso",      # Nombre de la nueva columna clave
+    values_to = "valor_retraso"     # Nombre de la nueva columna de valor
+  )
+# Gráfico de barras
+ggplot(flights_delay_summary, 
+       aes(x = carrier,          # Eje X: Compañía aérea
+           y = valor_retraso,    # Eje Y: Valor del retraso
+           fill = tipo_retraso    # Color: Tipo de retraso
+           )) +
+  geom_bar(stat = "identity", position = "dodge") + # Barras una junto a otra, identity para usar los valores tal cual y dodge para separarlas
+  labs(
+    title = "Retraso Medio por Aerolínea",
+    x = "Compañía Aérea",
+    y = "Retraso Medio (minutos)",
+    fill = "Tipo de Retraso"
+  )
 
 ```
 
 ¿Cuál de las dos representaciones anteriores es más adecuada para visualizar los retrasos?
-
-
-
+La más adecuada es la del gráfico de barras, ya que permite comparar fácilmente los retrasos medios de llegada, salida y global para cada compañía aérea, facilitando la identificación de patrones y diferencias entre ellas.
+En el boxplot, aunque muestra la distribución de los retrasos, puede resultar más difícil interpretar y comparar los valores medios entre las compañías aéreas debido a la superposición de datos.
 
 
 ### Ejercicio Extra 6
  Utilizando los conjuntos de datos `flights` y `planes` responde a las siguientes preguntas
  
 1. ¿Qué avión(tailnum) ha realizado más vuelos entre la ruta JFK (origen) y SFO (destino), en relación a su fecha de construcción `year`)? ¿de qué compañia aérea(carrier) es? ¿Cuál es el modelo de avión y cuántos asientos tiene?
-2. Indica cuántas compañias aéreas (carrier) operan la ruta  entre Nueva York (JFK) y Los Ángeles (LAX).
+```{r}
+load("./data/VuelosNY.Rdata")
+flights %>%
+  # Filtrar vuelos entre JFK y SFO
+  filter(origin == "JFK" & dest == "SFO") %>%
+  # Contar vuelos por tailnum
+  group_by(tailnum) %>%
+  summarise(num_vuelos = n()) %>%
+  # Ordenar por número de vuelos descendente
+  arrange(desc(num_vuelos)) %>%
+  # Tomar el avión con más vuelos
+  slice(1) %>%
+  # Unir con planes para obtener detalles del avión
+  left_join(planes, by = "tailnum") %>%
+  select(tailnum, num_vuelos, model, seats)
+
+```
+2. Indica cuántas compañias aéreas (carrier) operan la ruta entre Nueva York (JFK) y Los Ángeles (LAX).
 ¿Cuántos aviones distintos han realizado esta ruta ?.
 Realiza un histograma de las duraciones de los vuelos entre ambos aeropuertos. ¿Son todos vuelos directos ?
+```{r}
+flights %>%
+  # Filtrar vuelos entre JFK y LAX
+  filter(origin == "JFK" & dest == "LAX") %>%
+  # Contar compañías aéreas distintas
+  summarise(num_companias = n_distinct(carrier),
+            num_aviones = n_distinct(tailnum))
+
+flights %>%
+  # Filtrar vuelos entre JFK y LAX
+  filter(origin == "JFK" & dest == "LAX") %>%
+  # Histograma de duraciones de vuelos
+  ggplot(aes(x = air_time)) +
+  geom_histogram(binwidth = 10, fill = "blue", color = "black") +
+  labs(
+    title = "Histograma de Duraciones de Vuelos entre JFK y LAX",
+    x = "Duración del Vuelo (minutos)",
+    y = "Número de Vuelos"
+  )
+#Son todos vuelos directos? 
+#Para determinar si todos los vuelos son directos, podemos verificar si hay vuelos con escalas.
+flights %>%
+  filter(origin == "JFK" & dest == "LAX") %>%
+  summarise(num_vuelos_con_escala = sum(!is.na(air_time) & air_time > 0 & distance > 0 & air_time > (distance / 500))) # Suponiendo que un vuelo directo tiene una velocidad promedio de 500 mph 
+```
+
 
 3. ¿Qué companía aérea elegirías si tienes que ir desde La Guardia (LGA) a Denver (DEN) en el menor tiempo posible (en promedio), considerando los retrasos de salida y llegada. ¿Cuál es la duración media del vuelo (en horas)?
 ```{r}
