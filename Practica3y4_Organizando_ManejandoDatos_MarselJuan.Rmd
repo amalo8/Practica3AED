@@ -460,7 +460,7 @@ Vamos a cargar el conjunto de datos ``VuelosNY.Rdata`` que contiene dos data fra
 
 library(dplyr)
 #library(dbplyr)
-rm(list=ls())
+#rm(list=ls())
 load("./data/VuelosNY.Rdata")
 ```
 
@@ -584,6 +584,21 @@ Opcionalmente se puede crear un identificador, `id`, asociado al nombre de la ca
 
 ```{r}
 
+# Tabla de canciones
+billboard_songs <- billboard_tidy_longer %>%
+  select(artist, track, time) %>% 
+  unique() %>% # Eliminar duplicados
+  mutate(id = row_number()) %>% # Crear un identificador único para cada canción
+  select(id, everything()) # Reordenar para que 'id' sea la primera columna
+head(billboard_songs)
+
+# Tabla de rankings
+billboard_rankings <- billboard_tidy_longer %>%
+  select(track, week, rank) %>% 
+  left_join(billboard_songs %>% select(id, track), by = "track") %>%
+  #con left_join añadimos la columna id correspondiente a cada track
+  select(id, week, rank) # Usar 'id' en lugar de 'track'
+head(billboard_rankings)
 
 
 ```
