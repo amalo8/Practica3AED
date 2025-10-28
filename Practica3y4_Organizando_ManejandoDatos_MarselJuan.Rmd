@@ -424,8 +424,6 @@ weather_tidy <- raw %>%
 
 # Imprimir las primeras filas del resultado tidy
 print(head(weather_tidy))
-
-
 ```
 
 
@@ -471,8 +469,12 @@ load("./data/VuelosNY.Rdata")
 Muestra las primeras muestras de ambos data frames para hacerte una idea de las variables que contienen. ¿Qué diferencia existe entre la información mostrada en ambos data frames?
 
 ```{r }
+head(flights)
+head(planes)
 
 ```
+La diferencia entre ambos data frames es que "flights" contiene información sobre los vuelos realizados, incluyendo detalles como la fecha, hora de salida y llegada, retrasos, distancia, etc., mientras que "planes" contiene información sobre los aviones utilizados en esos vuelos, incluyendo detalles como el fabricante, modelo, número de asientos, año de fabricación, etc.
+
 
 ### Ejercicio 6
 
@@ -481,19 +483,30 @@ En nuestro estudio queremos aplicar una serie de criterios de exclusión sobre l
 * Nota: Revisar el uso de la función filter vista en clase y tener en cuenta los operadores de comparación: igual ==, distinto !=, mayor >, mayor o igual >=, menor <, menor o igual <=.
 
 ```{r }
+unique(planes$manufacturer) #Para ver las diferentes denominaciones de fabricantes en la variable 'manufacturer'
 
+planes.f <- planes %>%
+  # Filtrar aviones que no sean de MCDONELL DOUGLAS
+  filter(manufacturer != "MCDONNELL DOUGLAS CORPORATION" & manufacturer != "MCDONNELL DOUGLAS AIRCRAFT CO" & manufacturer != "MCDONNELL DOUGLAS" & manufacturer != "DOUGLAS") %>%
+  # Filtrar aviones con número de asientos entre 90 y 210
+  filter(seats >= 90 & seats <= 210) %>%
+  # Unificar denominaciones de AIRBUS
+  #EXISTE AIRBUS Y AIRBUS INDUSTRIE
+  mutate(manufacturer = ifelse(manufacturer %in% c("AIRBUS", "AIRBUS INDUSTRIE"), "AIRBUS COMP", manufacturer)
+  )
 
-
+unique(planes.f$manufacturer) #Para verificar que las denominaciones de AIRBUS se han unificado correctamente y que no quedan MCDONELL DOUGLAS
 ```
-
-
 ### Ejercicio 7
 
 Crea un data frame denominado `flights.f` que contenga los vuelos que involucren a los aviones presentes en el data frame `planes.f`. Para ello utiliza algunas de las funciones de **XXX_join** y la variable `tailnum` que es común en ambos data frames. 
 
 ```{r }
-
-
+flights.f <- flights %>%
+  # Realizar un inner join para filtrar vuelos con aviones en planes.f
+  #tailnum es la variable común que se refiere al número de cola del avión
+  inner_join(planes.f, by = "tailnum")
+head(flights.f) 
 ```
 
 ### Ejercicio 8
@@ -501,7 +514,8 @@ Crea un data frame denominado `flights.f` que contenga los vuelos que involucren
 Reasigna los nombres de los data frames `planes.f` y `flights.f` a los nombres originales  `planes` y `flights`.
 
 ```{r }
-
+planes <- planes.f
+flights <- flights.f
 ```
 
 
@@ -513,7 +527,12 @@ Existen variables que, a priori, no tienen demasiado interés para el estudio qu
 * En el data frame  `planes` quédate con todas las variables excepto `speed` y `type`.
 
 ```{r }
-
+flights <- flights %>%
+  # Seleccionar todas las columnas excepto 'time_hour' y las que terminan con 'time'
+  select(-time_hour, -ends_with("time"))
+planes <- planes %>%
+  # Seleccionar todas las columnas excepto 'speed' y 'type'
+  select(-speed, -type)
 ```
 
 ### Ejercicio 10
@@ -521,8 +540,13 @@ Existen variables que, a priori, no tienen demasiado interés para el estudio qu
 Incorpora una nueva variable a `flights` denominado `Full_Date` que sea de tipo `character` que incorpore una cadena de texto de la forma `d-m-Y`. Donde `d` indica día, `m` mes e `Y` año, a partir de la información incluida en el data frame. Utiliza una función de **DPLYR** que permita conseguir este propósito. Elimina las variables originales involucradas en la creación de la nueva variable.
 
 ```{r }
+flights <- flights %>%
+  # Crear la nueva variable 'Full_Date' en formato 'd-m-Y'
+  mutate(Full_Date = paste(day, month, year.x, sep = "-")) %>%
+  # Eliminar las variables originales 'day', 'month', 'year'
+  select(-day, -month, -year.x)
 
-
+head(flights)
 ```
 
 ### Ejercicio 11
@@ -530,7 +554,18 @@ Incorpora una nueva variable a `flights` denominado `Full_Date` que sea de tipo 
 Utilizando las funciones `group_by`, `summarise` y `filter`, crea un data frame donde se calcule el número de vuelos (`Num_flights`), la distancia media recorrida (`Mean_distance`) y la distancia total recorrida (`Total_distance`) para cada uno de los aviones (`tailnum`) presentes en el conjunto `flights`. Descarta aquellos registros del data frame en los que la variable `tailnum` tenga un valor NA. Utiliza el operador pipe para enlazar las funciones. Almacena el data frame en una variable denominada `Distances_plane`.  
 
 ```{r }
-
+Distances_plane <- flights %>%
+  # Eliminar filas con NA en 'tailnum'
+  filter(!is.na(tailnum)) %>%
+  # Agrupar por 'tailnum'
+  group_by(tailnum) %>%
+  # Resumir para calcular número de vuelos, distancia media y distancia total
+  summarise(
+    Num_flights = n(), # Número de vuelos
+    Mean_distance = mean(distance, na.rm = TRUE), # Distancia media
+    Total_distance = sum(distance, na.rm = TRUE) # Distancia total
+  )
+head(Distances_plane)
 ```
 
 
