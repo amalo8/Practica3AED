@@ -315,6 +315,7 @@ El conjunto de datos `tuberculosis`, de la _World Health Organization_, presenta
 ```{r load TB}
 load('data/tb.Rdata')
 head(raw[, 1:16])
+
 ```
 
 Podemos ver como efectivamente en una columna tenemos dos variables juntas, el sexo y el rango de edad. Por ejemplo, en `m014` la `m` hace referencia al sexo y `014` al rango de edad, dos variables que deberían estar separadas.
@@ -326,6 +327,34 @@ Para pasar a formato _tidy_ necesitamos realizar dos operaciones en este caso. E
 Convierte el conjunto de datos TB en _tidy_ utilizando `gather` y `separate`.
 
 ```{r}
+
+tb_tidy<- raw %>%
+  #GATHER: Juntar las columnas de casos
+  #Recolectamos todas las columnas que contienen la codificación de casos (ej. m014)
+  # Dejamos fuera las columnas identificadoras: country, year
+  gather(
+    key = "grupo_demografico", #Contendrá el nombre original de la columna 
+    value = "casos",          #Contendrá el número de casos
+    -country, -year
+  ) %>%
+  
+  #Eliminar las filas con NA, ya que representan datos faltantes
+  drop_na(casos) %>%
+  
+  #SEPARATE: Descomponer el grupo demográfico
+  # La columna "grupo_demografico" contiene el sexo y edad.
+  # Necesitamos descomponerla dos veces.
+  
+  #Separar Sexo (m/f/u) de Edad (014, 1524, 65)
+  separate(
+    col = grupo_demografico,
+    into = c("sexo", "edad"),
+    sep = 1, # Separar después del primer carácter (que es siempre el sexo)
+    extra = "merge" # En caso de que haya más caracteres, los unimos en la segunda columna (edad)
+  ) 
+
+# Imprimir las primeras filas del resultado tidy
+print(head(tb_tidy))
 
 ```
 
@@ -348,6 +377,53 @@ Para obtener la versión _tidy_ primero juntamos todos los días en una variable
 Obtén la versión _tidy_ del conjunto de datos `weather` utilizando las funciones `pivot_longer` y `pivot_wider`. Además cambiaremos las columnas `year`, `month` y `dia` por una única variable `fecha`. Para que la operación `pivot_wider` no de error tendremos que eliminar los NA's cuando usemos `pivot_longer`.
 
 ```{r}
+library(lubridate) # Necesario para manejar fechas
+
+weather_tidy <- raw %>%
+  # 1. PIVOT_LONGER: Mover los días (d1 a d31) a una sola columna 'dia'
+  pivot_longer(
+    # Columnas a pivotar: todas las que comienzan con "d"
+    cols = starts_with("d"),
+    
+    #El nombre de la columna (ej. "d1") va a la variable 'dia'
+    names_to = "dia",
+    
+    #El valor de la celda (temperatura) va a la variable 'valor'
+    values_to = "valor"
+  ) %>%
+  
+  # Eliminamos los NA
+  drop_na(valor) %>%
+  
+  # Limpiamos el prefijo "d" de la columna 'dia'
+  mutate(
+    dia = as.integer(gsub("d", "", dia))
+  ) %>%
+  
+  #PIVOT_WIDER: Mover los valores de 'element' a sus propias columnas
+  # La columna 'element' contiene nombres de variables ('tmin', 'tmax')
+  pivot_wider(
+    #La columna 'element' proporciona los nombres de las nuevas columnas
+    names_from = element,
+    
+    #La columna 'valor' proporciona los valores para las nuevas columnas
+    values_from = valor
+  ) %>%
+  
+  #Crear la columna 'fecha'
+  #Creamos una columna de fecha válida a partir de year, month, y dia
+  mutate(
+    # Combinamos year, month, dia en una cadena y usamos ymd() de lubridate para convertirla a fecha
+    fecha = ymd(paste(year, month, dia, sep = "-"))
+  ) %>%
+  #Reordenación 
+  select(
+    id, fecha, tmax, tmin, # Variables clave
+    -year, -month, -dia # Eliminamos las columnas originales de fecha
+  )
+
+# Imprimir las primeras filas del resultado tidy
+print(head(weather_tidy))
 
 
 ```
