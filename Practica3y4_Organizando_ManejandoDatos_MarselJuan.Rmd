@@ -787,33 +787,25 @@ flights %>%
     x = "Duración del Vuelo (minutos)",
     y = "Número de Vuelos"
   )
-#Son todos vuelos directos? 
-#Para determinar si todos los vuelos son directos, podemos verificar si hay vuelos con escalas.
-flights %>%
-  filter(origin == "JFK" & dest == "LAX") %>%
-  summarise(num_vuelos_con_escala = sum(!is.na(air_time) & air_time > 0 & distance > 0 & air_time > (distance / 500))) # Suponiendo que un vuelo directo tiene una velocidad promedio de 500 mph 
+
 ```
+Sí, son todos vuelos directos ya que filtramos donde el origin es exactamente JFK y el dest es exactamente LAX. Si el vuelo tuviera una escala, se registrarían dos filas separadas:Vuelo 1: JFK-ESCALA Vuelo 2: ESCALA-LAX.
 
 
 3. ¿Qué companía aérea elegirías si tienes que ir desde La Guardia (LGA) a Denver (DEN) en el menor tiempo posible (en promedio), considerando los retrasos de salida y llegada. ¿Cuál es la duración media del vuelo (en horas)?
 ```{r}
-#1
+flights %>%
+  # Filtrar vuelos entre LGA y DEN
+  filter(origin == "LGA" & dest == "DEN") %>%
+  # Calcular duración media del vuelo considerando retrasos
+  group_by(carrier) %>%
+  summarise(
+    duracion_media = mean(air_time + dep_delay + arr_delay, na.rm = TRUE) / 60 # Convertir a horas
+  ) %>%
+  # Ordenar por duración media ascendente
+  arrange(duracion_media) %>%
+  # Tomar la compañía con menor duración media
+  slice(1)
 
 ```
-
-```{r}
-#2 
-
-```
-
-```{r}
-#2 Histograma
-
-```
-
-```{r}
-
-
-```
-
 
