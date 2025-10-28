@@ -275,8 +275,36 @@ Obtén la versión _tidy_ de este conjunto de datos usando `pivot_longer`.
 Consejo: puedes eliminar el prefijo `wk` de las semanas mediante el argumento `names_prefix`. Opcionalmente puedes crear una columna `date` a partir de `date.entered`, sumando las semanas transcurridas desde la fecha de entrada en lista.
 
 ```{r}
+billboard_tidy_longer <- raw %>%
+  # 1. Pivotear de ancho a largo
+  pivot_longer(
+    # Columnas a pivotar: todas las que comienzan con "wk"
+    cols = starts_with("wk"),
+    
+    # Columna clave (semanas): nombra la nueva columna 'week'
+    names_to = "week",
+    
+    # Columna valor (ranking): nombra la nueva columna 'rank'
+    values_to = "rank",
+    
+    # Argumento names_prefix: elimina el prefijo "wk" del nombre de la columna,dejando solo el número de la semana (e.g., "wk1" -> "1")
+    names_prefix = "wk"
+  ) %>%
+  # 2. Convertir la columna 'week' a numérica y crear la columna 'date'
+  mutate(
+    # Convertir 'week' a entero
+    week = as.integer(week),
+    
+    # Crear la columna 'date': 
+    # Sumamos (week - 1) semanas a la fecha de entrada. Restamos 1 porque la columna 'wk1' es la fecha de entrada misma, es decir, 0 semanas después.
+    #date.entered es de tipo Date
+    date.entered = as_date(date.entered),
+    date = date.entered + weeks(week - 1)
+  ) %>%
+  #eliminar las filas donde la canción ya no estaba en el Top 100
+  drop_na(rank)
 
-
+print(head(billboard_tidy_longer))
 ```
 
 
