@@ -244,6 +244,30 @@ La posición (_ranking_) de cada canción en cada semana después de haber entra
 
 Para obtener la versión _tidy_  hemos de juntar todas las columnas desde `wk1` a `wk76` asignando como clave (`key`) una variable de nombre `week`, como valor (`value`) otra variable de nombre `rank`.
 
+```{r}
+# 1. Aplicar gather() para transformar el formato ancho a formato largo (tidy)
+billboard_tidy <- raw %>%
+  # Usamos gather() para recolectar las columnas de semana
+  gather(
+    key = "week", 
+    value = "rank", 
+    # Las columnas a recolectar son las de wk
+    starts_with("wk")
+  ) %>%
+  # 2. Convertir la nueva columna 'income' a factor
+  mutate(
+    # Elimina el prefijo 'wk' y lo convierte a numérico
+    week = as.integer(gsub("wk", "", week)))%>%
+    #Eliminar filas donde el ranking es NA (la canción salió del Top 100)
+  drop_na(rank)
+  
+
+# Imprimir las primeras filas del resultado y su estructura
+print(head(raw))
+print(head(billboard_tidy))
+```
+
+
 ### Ejercicio 2
 
 Obtén la versión _tidy_ de este conjunto de datos usando `pivot_longer`.
